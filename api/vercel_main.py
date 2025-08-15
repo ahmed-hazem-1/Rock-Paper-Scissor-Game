@@ -15,9 +15,9 @@ from pydantic import BaseModel
 from ultralytics import YOLO  # type: ignore
 import cv2  # type: ignore
 
-# For Vercel deployment - model needs to be hosted externally
-MODEL_URL = os.getenv("MODEL_URL", "https://your-model-hosting-service.com/best.pt")
-LOCAL_MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"..\best.pt")
+# For Vercel deployment - model hosted on GitHub
+MODEL_URL = os.getenv("MODEL_URL", "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/best.pt")
+LOCAL_MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"runs\detect\train\weights\best.pt")
 
 model: Optional[YOLO] = None
 MOVES = ["rock", "paper", "scissors"]
@@ -84,8 +84,14 @@ async def load_model():
             if os.path.exists(LOCAL_MODEL_PATH):
                 model_path = LOCAL_MODEL_PATH
                 print(f"Using local model: {model_path}")
+            elif os.path.exists("best.pt"):
+                model_path = "best.pt"
+                print(f"Using root model: {model_path}")
+            elif os.path.exists("runs/detect/train/weights/best.pt"):
+                model_path = "runs/detect/train/weights/best.pt"
+                print(f"Using repo model: {model_path}")
             else:
-                # Download from external URL (for Vercel)
+                # Download from GitHub raw URL
                 model_path = await download_model()
                 if not model_path:
                     raise FileNotFoundError("Could not load model from local or remote source")
@@ -214,4 +220,3 @@ async def root():
 
 # Vercel serverless function handler
 handler = app
-
