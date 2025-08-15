@@ -174,3 +174,4 @@ async def health():
         "model_exists": os.path.exists(MODEL_PATH)
     }
 
+
