@@ -5,6 +5,8 @@ import base64
 import numpy as np
 from typing import Optional
 from contextlib import asynccontextmanager
+import requests
+import tempfile
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,7 +15,9 @@ from pydantic import BaseModel
 from ultralytics import YOLO  # type: ignore
 import cv2  # type: ignore
 
-MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"runs\detect\train\weights\best.pt")
+# For Vercel deployment - model needs to be hosted externally
+MODEL_URL = os.getenv("MODEL_URL", "https://your-model-hosting-service.com/best.pt")
+LOCAL_MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"runs\detect\train\weights\best.pt")
 
 model: Optional[YOLO] = None
 MOVES = ["rock", "paper", "scissors"]
@@ -22,7 +26,7 @@ MOVES = ["rock", "paper", "scissors"]
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    load_model()
+    await load_model()
     yield
     # Shutdown (if needed)
 
@@ -51,14 +55,43 @@ class DetectResponse(BaseModel):
     bounding_box: Optional[dict] = None  # {"x1": float, "y1": float, "x2": float, "y2": float}
 
 
-def load_model():
+async def download_model():
+    """Download model from external URL for Vercel deployment"""
+    try:
+        print(f"Downloading model from {MODEL_URL}")
+        response = requests.get(MODEL_URL, stream=True)
+        response.raise_for_status()
+        
+        # Create temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pt')
+        
+        for chunk in response.iter_content(chunk_size=8192):
+            temp_file.write(chunk)
+        
+        temp_file.close()
+        print(f"Model downloaded to {temp_file.name}")
+        return temp_file.name
+    except Exception as e:
+        print(f"Failed to download model: {e}")
+        return None
+
+
+async def load_model():
     global model
     if model is None:
         try:
-            if not os.path.exists(MODEL_PATH):
-                raise FileNotFoundError(f"Model file not found: {MODEL_PATH}")
-            model = YOLO(MODEL_PATH)
-            print(f"Model loaded successfully from {MODEL_PATH}")
+            # Try local path first (for development)
+            if os.path.exists(LOCAL_MODEL_PATH):
+                model_path = LOCAL_MODEL_PATH
+                print(f"Using local model: {model_path}")
+            else:
+                # Download from external URL (for Vercel)
+                model_path = await download_model()
+                if not model_path:
+                    raise FileNotFoundError("Could not load model from local or remote source")
+            
+            model = YOLO(model_path)
+            print(f"Model loaded successfully from {model_path}")
         except Exception as e:
             print(f"Error loading model: {e}")
             raise RuntimeError(f"Failed to load YOLO model: {e}")
@@ -94,7 +127,7 @@ def decide_winner(player: str, computer: str):
 async def detect(req: DetectRequest):
     try:
         if model is None:
-            load_model()
+            await load_model()
         
         img = decode_image(req.image_base64)
         if img is None:
@@ -170,6 +203,14 @@ async def health():
     return {
         "status": "ok", 
         "model_loaded": model is not None,
-        "model_path": MODEL_PATH,
-        "model_exists": os.path.exists(MODEL_PATH)
+        "environment": "vercel" if os.getenv("VERCEL") else "local"
     }
+
+
+@app.get("/")
+async def root():
+    return {"message": "Rock Paper Scissors YOLO API is running!"}
+
+
+# Vercel serverless function handler
+handler = app

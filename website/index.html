@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Rock Paper Scissors - YOLO</title>
+	<style>
+		:root { --bg:#0f1115; --accent:#6366f1; --accent2:#10b981; --danger:#ef4444; --warn:#f59e0b; }
+		* { box-sizing:border-box; font-family: system-ui, Arial, sans-serif; }
+		body { margin:0; background:linear-gradient(135deg,#0f1115,#1e293b); color:#f1f5f9; min-height:100vh; display:flex; flex-direction:column; }
+		header { padding:1rem 1.5rem; background:#111827aa; backdrop-filter:blur(8px); display:flex; justify-content:space-between; align-items:center; }
+		h1 { font-size:1.2rem; margin:0; letter-spacing:.5px; }
+		main { flex:1; display:flex; flex-direction:column; gap:1rem; padding:1rem; max-width:1400px; width:100%; margin:0 auto; }
+		.controls { display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; background:#1e293b; padding:1rem; border-radius:12px; box-shadow:0 4px 10px -2px #000; }
+		.rounds-control { display:flex; flex-direction:column; align-items:center; gap:.25rem; }
+		.game-buttons { display:flex; gap:.6rem; align-items:center; }
+		.game-meta { margin-left:auto; text-align:right; font-size:.75rem; opacity:.7; }
+		label { font-size:.85rem; text-transform:uppercase; opacity:.8; letter-spacing:.5px; }
+		input[type=number]{ width:80px; padding:.5rem .6rem; border:1px solid #334155; border-radius:8px; background:#0f172a; color:#f8fafc; }
+		button { cursor:pointer; border:none; padding:.65rem 1.1rem; font-weight:600; border-radius:10px; background:var(--accent); color:#fff; display:inline-flex; align-items:center; gap:.5rem; box-shadow:0 4px 14px -4px #6366f1; transition:.25s; }
+		button.secondary { background:#334155; box-shadow:none; }
+		button.danger { background:var(--danger); }
+		button:disabled { opacity:.5; cursor:not-allowed; }
+		button:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 8px 20px -6px #6366f1; }
+		
+		/* Touch device optimizations */
+		@media (hover: none) and (pointer: coarse) {
+			button:hover:not(:disabled) { transform:none; box-shadow:0 4px 14px -4px #6366f1; }
+			button:active:not(:disabled) { transform:scale(0.98); }
+		}
+		.layout { display:flex; flex:1; gap:1rem; min-height:420px; }
+		.panel { flex:1; position:relative; background:#0f172a; border:1px solid #1e293b; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; }
+		.panel h2 { margin:0; font-size:.9rem; padding:.6rem .9rem; background:#111827; border-bottom:1px solid #1e293b; letter-spacing:.5px; text-transform:uppercase; }
+		.video-wrapper { flex:1; position:relative; display:flex; align-items:center; justify-content:center; }
+		#video { width:100%; height:100%; object-fit:cover; background:#020617; }
+		.computer-anim { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:6rem; font-weight:700; letter-spacing:2px; color:#64748b; }
+		.scoreboard { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:.75rem; margin-top:1rem; }
+		.scorebox { background:#1e293b; padding:.9rem .9rem .8rem; border-radius:12px; position:relative; overflow:hidden; }
+		.scorebox span.label { display:block; font-size:.65rem; text-transform:uppercase; opacity:.7; letter-spacing:.5px; margin-bottom:.35rem; }
+		.big { font-size:1.4rem; font-weight:700; }
+		.status { margin-top:.5rem; padding: .85rem 1rem; background:#111827; border:1px solid #1e293b; border-radius:12px; font-size:.9rem; min-height:54px; display:flex; align-items:center; }
+		.winner-banner { position:fixed; inset:0; background:#000c; display:none; align-items:center; justify-content:center; z-index:50; flex-direction:column; }
+		.winner-banner.active { display:flex; animation:fade .6s ease; }
+		.winner-banner h2 { font-size:3rem; margin:.5rem 0; text-shadow:0 6px 25px #000; }
+		.confetti { position:fixed; inset:0; pointer-events:none; overflow:hidden; z-index:60; }
+		@keyframes fall { to { transform:translateY(110vh) rotate(var(--rot)); opacity:0.9; } }
+		@keyframes fade { from { opacity:0; transform:scale(.9);} }
+		@keyframes pulse { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.1); } }
+		@keyframes bounce { 0%, 100% { transform:scale(1); } 50% { transform:scale(1.2); } }
+		.countdown-overlay { position:fixed; inset:0; background:#000a; display:none; align-items:center; justify-content:center; z-index:100; flex-direction:column; }
+		.countdown-overlay.active { display:flex; }
+		.countdown-number { font-size:8rem; font-weight:900; color:#10b981; text-shadow:0 0 30px #10b981; animation:bounce 1s ease-in-out; }
+		.countdown-text { font-size:1.5rem; margin-top:1rem; color:#f1f5f9; opacity:0.8; }
+		.round-result-overlay { position:fixed; inset:0; background:#000a; display:none; align-items:center; justify-content:center; z-index:90; flex-direction:column; }
+		.round-result-overlay.active { display:flex; animation:fade .4s ease; }
+		.round-result-content { text-align:center; }
+		.round-result-moves { font-size:4rem; margin:1rem 0; }
+		.round-result-text { font-size:2rem; margin:0.5rem 0; color:#f1f5f9; }
+		.chip { display:inline-block; padding:.35rem .65rem; border-radius:30px; background:#334155; font-size:.65rem; letter-spacing:.5px; text-transform:uppercase; margin-right:.4rem; }
+		footer { padding:1rem; font-size:.65rem; text-align:center; opacity:.5; }
+		.hidden { display:none !important; }
+
+		/* Mobile Responsive Styles */
+		@media (max-width: 768px) {
+			body { font-size:14px; }
+			header { padding:.75rem 1rem; flex-direction:column; gap:.5rem; text-align:center; }
+			h1 { font-size:1rem; }
+			main { padding:.75rem; gap:.75rem; }
+			
+			.controls { 
+				flex-direction:column; 
+				align-items:stretch; 
+				gap:.75rem; 
+				padding:.75rem;
+				text-align:center;
+			}
+			.rounds-control { 
+				align-items:center;
+			}
+			.game-buttons { 
+				flex-direction:column;
+				gap:.5rem;
+				align-items:stretch;
+			}
+			.game-meta { 
+				margin-left:0 !important; 
+				text-align:center;
+				font-size:.7rem;
+			}
+			
+			button { 
+				padding:.75rem 1.5rem; 
+				font-size:.9rem; 
+				width:100%; 
+				max-width:280px;
+				justify-content:center;
+			}
+			
+			.layout { 
+				flex-direction:column; 
+				gap:.75rem; 
+				min-height:auto;
+			}
+			.panel { 
+				min-height:250px; 
+			}
+			
+			.computer-anim { 
+				font-size:4rem; 
+			}
+			
+			.scoreboard { 
+				grid-template-columns:repeat(2,1fr); 
+				gap:.5rem; 
+				margin-top:.75rem;
+			}
+			.scorebox { 
+				padding:.75rem .5rem; 
+			}
+			.scorebox span.label { 
+				font-size:.6rem; 
+			}
+			.big { 
+				font-size:1.2rem; 
+			}
+			
+			.status { 
+				padding:.75rem; 
+				font-size:.85rem; 
+				min-height:auto;
+				text-align:center;
+			}
+			
+			.winner-banner h2 { 
+				font-size:2rem; 
+				text-align:center;
+				padding:0 1rem;
+			}
+			
+			.countdown-number { 
+				font-size:6rem; 
+			}
+			.countdown-text { 
+				font-size:1.2rem; 
+			}
+			
+			.round-result-moves { 
+				font-size:3rem; 
+			}
+			.round-result-text { 
+				font-size:1.5rem; 
+				padding:0 1rem;
+				text-align:center;
+			}
+		}
+
+		@media (max-width: 480px) {
+			header { padding:.5rem; }
+			h1 { font-size:.9rem; }
+			main { padding:.5rem; gap:.5rem; }
+			
+			.controls { padding:.5rem; gap:.5rem; }
+			.game-buttons { 
+				gap:.4rem;
+			}
+			button { 
+				padding:.6rem 1.2rem; 
+				font-size:.8rem; 
+			}
+			
+			.panel { 
+				min-height:200px; 
+			}
+			
+			.computer-anim { 
+				font-size:3rem; 
+			}
+			
+			.scoreboard { 
+				grid-template-columns:1fr; 
+				gap:.4rem;
+			}
+			.scorebox { 
+				padding:.6rem .4rem; 
+				display:flex;
+				justify-content:space-between;
+				align-items:center;
+			}
+			.scorebox span.label { 
+				font-size:.55rem; 
+				margin-bottom:0;
+			}
+			.big { 
+				font-size:1.1rem; 
+			}
+			
+			.status { 
+				padding:.6rem; 
+				font-size:.8rem; 
+			}
+			
+			.winner-banner h2 { 
+				font-size:1.5rem; 
+			}
+			
+			.countdown-number { 
+				font-size:4rem; 
+			}
+			.countdown-text { 
+				font-size:1rem; 
+			}
+			
+			.round-result-moves { 
+				font-size:2.5rem; 
+			}
+			.round-result-text { 
+				font-size:1.2rem; 
+			}
+		}
+
+		/* Landscape mobile optimization */
+		@media (max-height: 600px) and (orientation: landscape) {
+			.layout { 
+				flex-direction:row; 
+				min-height:300px;
+			}
+			.panel { 
+				min-height:300px; 
+			}
+			.scoreboard { 
+				grid-template-columns:repeat(3,1fr); 
+			}
+			.countdown-number { 
+				font-size:4rem; 
+			}
+			.round-result-moves { 
+				font-size:2rem; 
+			}
+			.round-result-text { 
+				font-size:1rem; 
+			}
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>Rock • Paper • Scissors • YOLO</h1>
+		<div>
+			<button id="btnReset" class="secondary" disabled>Reset</button>
+		</div>
+	</header>
+	<main>
+		<section class="controls">
+			<div class="rounds-control">
+				<label for="rounds">Rounds</label>
+				<input type="number" id="rounds" min="1" max="15" value="3" />
+			</div>
+			<div class="game-buttons">
+				<button id="btnStart">Play vs Computer</button>
+				<button id="btnStop" class="danger" disabled>Stop</button>
+			</div>
+			<div id="gameMeta" class="game-meta">
+				<div>Model: <span id="modelStatus">Loading...</span></div>
+				<div>Device: <span id="deviceInfo">Detecting...</span></div>
+			</div>
+		</section>
+			<section class="layout">
+				<div class="panel">
+					<h2>Player (Camera)</h2>
+					<div class="video-wrapper">
+						<video id="video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;background:#020617;"></video>
+						<canvas id="overlayCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10;"></canvas>
+						<canvas id="frameCanvas" class="hidden"></canvas>
+					</div>
+				</div>
+				<div class="panel">
+					<h2>Computer</h2>
+					<div class="video-wrapper">
+						<div id="computerAnim" class="computer-anim">🤖</div>
+					</div>
+				</div>
+			</section>
+		<section class="scoreboard" id="scoreboard">
+			<div class="scorebox"><span class="label">Player Score</span><span class="big" id="pScore">0</span></div>
+			<div class="scorebox"><span class="label">Computer Score</span><span class="big" id="cScore">0</span></div>
+			<div class="scorebox"><span class="label">Round</span><span class="big" id="roundInfo">-</span></div>
+			<div class="scorebox"><span class="label">Player Move</span><span class="big" id="pMove">-</span></div>
+			<div class="scorebox"><span class="label">Computer Move</span><span class="big" id="cMove">-</span></div>
+			<div class="scorebox"><span class="label">Round Winner</span><span class="big" id="rWinner">-</span></div>
+		</section>
+		<div class="status" id="statusBar">Idle - Press "Play vs Computer" to start.</div>
+	</main>
+	<div class="winner-banner" id="winnerModal">
+		<h2 id="winnerText"></h2>
+		<button onclick="hideWinner();" class="secondary">Close</button>
+	</div>
+	<div class="countdown-overlay" id="countdownOverlay">
+		<div class="countdown-number" id="countdownNumber">3</div>
+		<div class="countdown-text">Get Ready!</div>
+	</div>
+	<div class="round-result-overlay" id="roundResultOverlay">
+		<div class="round-result-content">
+			<div class="round-result-moves" id="roundResultMoves">✊ vs ✋</div>
+			<div class="round-result-text" id="roundResultWinner">Player Wins!</div>
+			<div class="round-result-text" id="roundResultScore">Score: 1 - 0</div>
+		</div>
+	</div>
+	<div class="confetti" id="confetti"></div>
+	<footer>Prototype UI for YOLO-powered Rock Paper Scissors.</footer>
+	<script>
+		const btnStart = document.getElementById('btnStart');
+		const btnStop = document.getElementById('btnStop');
+		const btnReset = document.getElementById('btnReset');
+		const roundsInput = document.getElementById('rounds');
+		const videoEl = document.getElementById('video');
+		const frameCanvas = document.getElementById('frameCanvas');
+		const overlayCanvas = document.getElementById('overlayCanvas');
+		const computerAnim = document.getElementById('computerAnim');
+		const statusBar = document.getElementById('statusBar');
+		const pScore = document.getElementById('pScore');
+		const cScore = document.getElementById('cScore');
+		const roundInfo = document.getElementById('roundInfo');
+		const pMove = document.getElementById('pMove');
+		const cMove = document.getElementById('cMove');
+		const rWinner = document.getElementById('rWinner');
+		const winnerModal = document.getElementById('winnerModal');
+		const winnerText = document.getElementById('winnerText');
+		const countdownOverlay = document.getElementById('countdownOverlay');
+		const countdownNumber = document.getElementById('countdownNumber');
+		const roundResultOverlay = document.getElementById('roundResultOverlay');
+		const roundResultMoves = document.getElementById('roundResultMoves');
+		const roundResultWinner = document.getElementById('roundResultWinner');
+		const roundResultScore = document.getElementById('roundResultScore');
+		const confettiBox = document.getElementById('confetti');
+		const modelStatus = document.getElementById('modelStatus');
+		const deviceInfo = document.getElementById('deviceInfo');
+
+		let poller = null;
+		let gameActive = false;
+		let roundsToPlay = 3;
+		let currentRound = 1;
+		let playerScoreVal = 0;
+		let computerScoreVal = 0;
+		let capturing = false;
+		let lastDetectionTime = 0;
+		let currentPlayerMove = null;
+		let detectionCooldown = false;
+		
+		const API_BASE = window.location.hostname === 'localhost' ? 
+			'http://localhost:8000' : 
+			'https://your-vercel-app.vercel.app/api';
+
+		// Move emojis
+		const moveEmojis = {
+			'rock': '✊',
+			'paper': '✋', 
+			'scissors': '✌️',
+			'thinking': '🤔',
+			'waiting': '⏳'
+		};
+
+		function updateComputerDisplay(move = null, isThinking = false) {
+			if (isThinking) {
+				computerAnim.textContent = moveEmojis.thinking;
+				computerAnim.style.animation = 'pulse 1s infinite';
+			} else if (move) {
+				computerAnim.textContent = moveEmojis[move] || '🤖';
+				computerAnim.style.animation = 'none';
+			} else {
+				computerAnim.textContent = '🤖';
+				computerAnim.style.animation = 'none';
+			}
+		}
+
+		function drawBoundingBox(box) {
+			if (!box || !overlayCanvas) return;
+			
+			const ctx = overlayCanvas.getContext('2d');
+			ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+			
+			// Get canvas dimensions relative to video
+			const rect = videoEl.getBoundingClientRect();
+			const scaleX = overlayCanvas.width / frameCanvas.width;
+			const scaleY = overlayCanvas.height / frameCanvas.height;
+			
+			// Scale bounding box coordinates
+			const x1 = box.x1 * scaleX;
+			const y1 = box.y1 * scaleY;
+			const x2 = box.x2 * scaleX;
+			const y2 = box.y2 * scaleY;
+			
+			// Draw bounding box
+			ctx.strokeStyle = '#10b981';
+			ctx.lineWidth = 3;
+			ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+			
+			// Draw semi-transparent fill
+			ctx.fillStyle = 'rgba(16, 185, 129, 0.2)';
+			ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+		}
+
+		function clearBoundingBox() {
+			if (overlayCanvas) {
+				const ctx = overlayCanvas.getContext('2d');
+				ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+			}
+		}
+
+		function showCountdown() {
+			return new Promise((resolve) => {
+				countdownOverlay.classList.add('active');
+				let count = 3;
+				
+				const countInterval = setInterval(() => {
+					countdownNumber.textContent = count;
+					countdownNumber.style.animation = 'none';
+					// Force reflow to restart animation
+					countdownNumber.offsetHeight;
+					countdownNumber.style.animation = 'bounce 1s ease-in-out';
+					
+					count--;
+					
+					if (count < 0) {
+						clearInterval(countInterval);
+						countdownOverlay.classList.remove('active');
+						resolve();
+					}
+				}, 1000);
+			});
+		}
+
+		function showRoundResult(playerMove, computerMove, winner) {
+			const playerEmoji = moveEmojis[playerMove] || '❓';
+			const computerEmoji = moveEmojis[computerMove] || '❓';
+			
+			roundResultMoves.textContent = `${playerEmoji} vs ${computerEmoji}`;
+			
+			let winnerText = '';
+			if (winner === 'player') winnerText = 'You Win This Round! 🎉';
+			else if (winner === 'computer') winnerText = 'Computer Wins This Round 🤖';
+			else winnerText = 'Round Tied! 🤝';
+			
+			roundResultWinner.textContent = winnerText;
+			roundResultScore.textContent = `Score: ${playerScoreVal} - ${computerScoreVal}`;
+			
+			roundResultOverlay.classList.add('active');
+			
+			setTimeout(() => {
+				roundResultOverlay.classList.remove('active');
+			}, 2500);
+		}
+
+			function updateScoreboard(playerMove, computerMove, winner) {
+				pScore.textContent = playerScoreVal;
+				cScore.textContent = computerScoreVal;
+				roundInfo.textContent = currentRound + '/' + roundsToPlay;
+				pMove.textContent = playerMove || '-';
+				cMove.textContent = computerMove || '-';
+				rWinner.textContent = winner || '-';
+			}
+
+			async function startGame(){
+				roundsToPlay = parseInt(roundsInput.value || '3', 10);
+				currentRound = 1; 
+				playerScoreVal = 0; 
+				computerScoreVal = 0;
+				detectionCooldown = false;
+				updateScoreboard();
+				await initCamera();
+				
+				// Show countdown before starting
+				statusBar.textContent = 'Get ready to play...';
+				btnStart.disabled = true; 
+				btnStop.disabled = false; 
+				btnReset.disabled = false; 
+				roundsInput.disabled = true;
+				
+				await showCountdown();
+				
+				statusBar.textContent = `Round ${currentRound} - Show your move!`;
+				gameActive = true;
+				capturing = true;
+				captureLoop();
+			}
+
+			async function stopGame(){
+				capturing = false; 
+				gameActive = false;
+				detectionCooldown = false;
+				btnStart.disabled = false; 
+				btnStop.disabled = true; 
+				roundsInput.disabled = false;
+				statusBar.textContent = 'Game stopped.';
+				updateComputerDisplay(); // Reset to robot
+				clearBoundingBox();
+				countdownOverlay.classList.remove('active');
+				roundResultOverlay.classList.remove('active');
+			}
+
+			async function resetGame(){
+				capturing = false; 
+				gameActive = false;
+				detectionCooldown = false;
+				currentRound = 1;
+				playerScoreVal = 0;
+				computerScoreVal = 0;
+				statusBar.textContent = 'Game reset. Ready to play.';
+				btnStart.disabled = false; 
+				btnStop.disabled = true; 
+				roundsInput.disabled = false;
+				pScore.textContent = cScore.textContent = '0'; 
+				roundInfo.textContent = '-'; 
+				pMove.textContent = cMove.textContent = rWinner.textContent = '-'; 
+				hideWinner(); 
+				clearConfetti();
+				updateComputerDisplay(); // Reset to robot
+				clearBoundingBox();
+				countdownOverlay.classList.remove('active');
+				roundResultOverlay.classList.remove('active');
+			}
+
+			async function initCamera(){
+				if(!navigator.mediaDevices) { 
+					statusBar.textContent = 'Camera API not supported.'; 
+					return; 
+				}
+				const stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480 } });
+				videoEl.srcObject = stream;
+				await new Promise(r => videoEl.onloadedmetadata = r);
+				
+				// Set up canvases
+				frameCanvas.width = videoEl.videoWidth;
+				frameCanvas.height = videoEl.videoHeight;
+				overlayCanvas.width = videoEl.clientWidth;
+				overlayCanvas.height = videoEl.clientHeight;
+				
+				// Resize overlay canvas when video element resizes
+				const resizeObserver = new ResizeObserver(() => {
+					overlayCanvas.width = videoEl.clientWidth;
+					overlayCanvas.height = videoEl.clientHeight;
+				});
+				resizeObserver.observe(videoEl);
+			}
+
+			async function captureLoop(){
+				if(!capturing) return;
+				try {
+					const ctx = frameCanvas.getContext('2d');
+					ctx.drawImage(videoEl, 0, 0, frameCanvas.width, frameCanvas.height);
+					const b64 = frameCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+					
+					const res = await fetch(API_BASE + '/detect', { 
+						method:'POST', 
+						headers:{'Content-Type':'application/json'}, 
+						body: JSON.stringify({ image_base64: b64 }) 
+					});
+					
+					if(res.ok){
+						const data = await res.json();
+						
+						// Show detection info and bounding box
+						if(data.player_move && data.confidence) {
+							currentPlayerMove = data.player_move;
+							statusBar.textContent = `Detected: ${data.player_move} (${(data.confidence * 100).toFixed(1)}%) - Hold for 3 seconds to confirm`;
+							
+							// Draw bounding box if available
+							if(data.bounding_box) {
+								drawBoundingBox(data.bounding_box);
+							}
+							
+							// Only process if we have a confident detection and we're not in cooldown
+							if(data.confidence > 0.6 && !detectionCooldown) {
+								detectionCooldown = true;
+								statusBar.textContent = `Processing round ${currentRound}...`;
+								updateComputerDisplay(null, true); // Show thinking emoji
+								
+								// Wait 3 seconds for user to see result
+								setTimeout(() => {
+									processRound(data.player_move, data.computer_move, data.round_winner);
+								}, 3000);
+							}
+						} else {
+							clearBoundingBox();
+							if(!detectionCooldown) {
+								statusBar.textContent = `Round ${currentRound} - Show your move (rock, paper, or scissors)`;
+								updateComputerDisplay(); // Reset to robot emoji
+							}
+						}
+					} else {
+						clearBoundingBox();
+						statusBar.textContent = 'API connection error';
+					}
+				} catch(e){
+					console.error('Capture error:', e);
+					clearBoundingBox();
+					statusBar.textContent = 'Connection error - Check if API is running';
+				}
+				
+				if(capturing) {
+					setTimeout(captureLoop, 500); // Reduced frequency for better UX
+				}
+			}
+			
+			function processRound(playerMove, computerMove, winner) {
+				if(winner === 'player') playerScoreVal++; 
+				else if(winner === 'computer') computerScoreVal++;
+				
+				// Show computer's move emoji
+				updateComputerDisplay(computerMove);
+				
+				updateScoreboard(playerMove, computerMove, winner);
+				statusBar.textContent = `Round ${currentRound}: ${playerMove} vs ${computerMove} - ${winner === 'tie' ? 'Tie!' : winner + ' wins!'}`;
+				
+				// Show round result popup
+				showRoundResult(playerMove, computerMove, winner);
+				
+				currentRound++;
+				
+				if(currentRound > roundsToPlay){
+					// Game over
+					setTimeout(async () => {
+						let final;
+						if(playerScoreVal > computerScoreVal) final='player';
+						else if(computerScoreVal > playerScoreVal) final='computer';
+						else final='tie';
+						showWinner(final);
+						capturing = false; 
+						gameActive = false;
+						btnStart.disabled=false; 
+						btnStop.disabled=true; 
+						roundsInput.disabled=false;
+						updateComputerDisplay(); // Reset to robot
+						clearBoundingBox();
+					}, 3000);
+				} else {
+					// Next round with countdown
+					setTimeout(async () => {
+						detectionCooldown = false;
+						statusBar.textContent = 'Get ready for next round...';
+						updateComputerDisplay(); // Reset to robot for next round
+						clearBoundingBox();
+						
+						// Show countdown for next round
+						await showCountdown();
+						
+						if(capturing) { // Check if game is still active
+							statusBar.textContent = `Round ${currentRound} - Show your move!`;
+						}
+					}, 3000);
+				}
+			}
+
+		function showWinner(w){
+			let msg = '';
+			if(w==='player') msg = 'You Win! 🎉';
+			else if(w==='computer') msg = 'Computer Wins 🤖';
+			else msg = 'Tie Game';
+			winnerText.textContent = msg;
+			winnerModal.classList.add('active');
+			launchConfetti();
+		}
+		function hideWinner(){ winnerModal.classList.remove('active'); }
+
+		function launchConfetti(){
+			clearConfetti();
+			const colors=['#6366f1','#10b981','#f59e0b','#ef4444','#3b82f6','#ec4899'];
+			for(let i=0;i<120;i++){
+				const d=document.createElement('div');
+				d.style.position='absolute';
+				d.style.top='-5vh';
+				d.style.left=Math.random()*100+'%';
+				const size=6+Math.random()*8;
+				d.style.width=size+'px';
+				d.style.height=size*0.4+'px';
+				d.style.background=colors[i%colors.length];
+				d.style.opacity='0.9';
+				d.style.transform=`rotate(${Math.random()*360}deg)`;
+				d.style.borderRadius='2px';
+				d.style.animation=`fall ${3+Math.random()*3}s linear forwards`;
+				d.style.setProperty('--rot', (Math.random()>0.5?'' : '-') + (90+Math.random()*180)+'deg');
+				confettiBox.appendChild(d);
+			}
+		}
+		function clearConfetti(){ confettiBox.innerHTML=''; }
+
+		btnStart.addEventListener('click', startGame);
+		btnStop.addEventListener('click', stopGame);
+		btnReset.addEventListener('click', resetGame);
+
+			async function health(){
+				try { 
+					const r = await fetch(API_BASE + '/health'); 
+					if(r.ok) {
+						const d = await r.json(); 
+						modelStatus.textContent = d.model_loaded ? 'Ready' : 'Loading';
+						deviceInfo.textContent = d.model_exists ? 'Model Found' : 'Model Missing';
+					} else {
+						modelStatus.textContent = 'API Error';
+						deviceInfo.textContent = 'Unavailable';
+					}
+				} catch(e){ 
+					modelStatus.textContent = 'Unavailable';
+					deviceInfo.textContent = 'Check API';
+					console.error('Health check failed:', e);
+				}
+			}
+			health();
+			setInterval(health, 5000);
+	</script>
+</body>
+</html>
