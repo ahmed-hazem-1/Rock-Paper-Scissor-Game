@@ -18,7 +18,11 @@
   ],
   "functions": {
     "api/vercel_main.py": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     }
+  },
+  "github": {
+    "silent": true
   }
 }
