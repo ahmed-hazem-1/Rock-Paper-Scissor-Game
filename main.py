@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from ultralytics import YOLO  # type: ignore
 import cv2  # type: ignore
 
-MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"runs\detect\train\weights\best.pt")
+MODEL_PATH = os.getenv("YOLO_WEIGHTS", r".\best.pt")
 
 model: Optional[YOLO] = None
 MOVES = ["rock", "paper", "scissors"]
@@ -173,3 +173,4 @@ async def health():
         "model_path": MODEL_PATH,
         "model_exists": os.path.exists(MODEL_PATH)
     }
+
