@@ -17,7 +17,7 @@ import cv2  # type: ignore
 
 # For Vercel deployment - model needs to be hosted externally
 MODEL_URL = os.getenv("MODEL_URL", "https://your-model-hosting-service.com/best.pt")
-LOCAL_MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"runs\detect\train\weights\best.pt")
+LOCAL_MODEL_PATH = os.getenv("YOLO_WEIGHTS", r"..\best.pt")
 
 model: Optional[YOLO] = None
 MOVES = ["rock", "paper", "scissors"]
@@ -214,3 +214,4 @@ async def root():
 
 # Vercel serverless function handler
 handler = app
+
